@@ -1,0 +1,52 @@
+# LoraMaker - ComfyUI LoRA 자동 생성 도구
+# 검증된 버전들 기반
+
+# === Core ML/DL ===
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+diffusers>=0.21.0
+accelerate>=0.20.0
+safetensors>=0.3.1
+
+# === LoRA Training (Kohya-ss 기반) ===
+# Kohya-ss를 서브모듈로 사용하거나 직접 설치
+# git+https://github.com/kohya-ss/sd-scripts.git
+bitsandbytes>=0.41.0  # 8bit optimizer
+einops>=0.6.1
+ftfy>=6.1.1
+pytorch-lightning>=2.0.0
+
+# === 이미지 처리 ===
+Pillow>=10.0.0
+opencv-python>=4.8.0
+albumentations>=1.3.0  # 이미지 augmentation
+
+# === 자동 캡셔닝 ===
+# BLIP/BLIP-2
+# git+https://github.com/salesforce/LAVIS.git  # BLIP-2
+timm>=0.9.0  # Vision models
+
+# WD14 Tagger (Waifu Diffusion)
+onnxruntime>=1.15.0  # WD14 inference
+huggingface-hub>=0.16.0
+
+# === UI ===
+gradio>=3.50.0
+pyyaml>=6.0
+
+# === 유틸리티 ===
+tqdm>=4.65.0
+numpy>=1.24.0
+pandas>=2.0.0  # 데이터 관리
+tensorboard>=2.13.0  # 로깅
+omegaconf>=2.3.0  # 설정 관리
+
+# === 선택적 최적화 ===
+xformers>=0.0.20  # 메모리 최적화 (CUDA 필요)
+# triton>=2.0.0  # SDXL 학습 시 추천
+
+# === 개발 도구 ===
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0

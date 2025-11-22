@@ -1,0 +1,246 @@
+# LoRA 학습 프리셋 - 검증된 커뮤니티 베스트 프랙티스 기반
+# 참고: Kohya-ss, civitai.com 커뮤니티, stability.ai 공식 가이드
+
+# 테스트 모드 - 개발/디버깅용 (1-2분)
+test:
+  description: "빠른 테스트용 - 파이프라인 검증만"
+  max_train_epochs: 1
+  max_train_steps: 50
+  save_every_n_epochs: 1
+
+  # 네트워크 설정
+  network_dim: 8  # 매우 작은 rank
+  network_alpha: 4
+
+  # 학습률
+  learning_rate: 1e-4
+  unet_lr: 1e-4
+  text_encoder_lr: 5e-5
+  lr_scheduler: "cosine"
+  lr_warmup_steps: 10
+
+  # 배치 설정
+  train_batch_size: 1
+  resolution: 512
+
+  # 최적화
+  optimizer_type: "AdamW8bit"
+  mixed_precision: "fp16"
+
+  # 샘플링
+  sample_every_n_epochs: 1
+  sample_prompts: "1girl, portrait, high quality"
+
+# 캐릭터 LoRA - 인물/캐릭터 학습용 (검증된 설정)
+character:
+  description: "캐릭터/인물 학습 - Civitai 추천 설정"
+  max_train_epochs: 10
+  save_every_n_epochs: 2
+
+  # 네트워크 설정 (커뮤니티 검증됨)
+  network_dim: 32  # rank 32가 캐릭터에 최적
+  network_alpha: 16  # alpha = dim/2 추천
+
+  # 학습률 (Kohya 공식 추천)
+  learning_rate: 1e-4
+  unet_lr: 1e-4
+  text_encoder_lr: 5e-5  # Text encoder는 낮게
+  lr_scheduler: "cosine_with_restarts"
+  lr_scheduler_num_cycles: 3
+  lr_warmup_ratio: 0.1
+
+  # 배치 설정
+  train_batch_size: 2
+  resolution: 512  # SD 1.5 기준
+  enable_bucket: true
+  min_bucket_reso: 320
+  max_bucket_reso: 960
+  bucket_reso_steps: 64
+
+  # 최적화
+  optimizer_type: "AdamW8bit"  # 메모리 효율적
+  mixed_precision: "fp16"
+  gradient_checkpointing: true
+  gradient_accumulation_steps: 1
+  max_grad_norm: 1.0
+
+  # Regularization (과적합 방지)
+  min_snr_gamma: 5  # 학습 안정성 향상
+  noise_offset: 0.05  # 밝기 개선
+
+  # 샘플링
+  sample_every_n_epochs: 2
+  sample_sampler: "euler_a"
+  sample_prompts: |
+    masterpiece, best quality, 1girl, portrait
+    masterpiece, best quality, 1boy, full body
+
+  # 저장
+  save_model_as: "safetensors"
+  save_precision: "fp16"
+
+# 스타일 LoRA - 화풍/아트스타일 학습용
+style:
+  description: "스타일/화풍 학습 - 높은 dim 권장"
+  max_train_epochs: 15
+  save_every_n_epochs: 3
+
+  # 네트워크 설정 (스타일은 더 큰 capacity 필요)
+  network_dim: 64
+  network_alpha: 32
+
+  # 학습률
+  learning_rate: 5e-5  # 스타일은 낮은 LR
+  unet_lr: 5e-5
+  text_encoder_lr: 2e-5
+  lr_scheduler: "cosine"
+  lr_warmup_ratio: 0.1
+
+  # 배치 설정
+  train_batch_size: 2
+  resolution: 768  # 스타일은 높은 해상도
+  enable_bucket: true
+  min_bucket_reso: 512
+  max_bucket_reso: 1024
+  bucket_reso_steps: 64
+
+  # 최적화
+  optimizer_type: "AdamW8bit"
+  mixed_precision: "fp16"
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+
+  # Regularization
+  min_snr_gamma: 5
+  noise_offset: 0.1  # 스타일 학습에 도움
+
+  # 샘플링
+  sample_every_n_epochs: 3
+  sample_sampler: "euler_a"
+  sample_prompts: |
+    masterpiece, landscape, artistic style
+    portrait, artistic style, detailed
+
+  # 저장
+  save_model_as: "safetensors"
+  save_precision: "fp16"
+
+# 오브젝트/컨셉 LoRA
+concept:
+  description: "특정 물체/개념 학습"
+  max_train_epochs: 12
+  save_every_n_epochs: 2
+
+  # 네트워크 설정
+  network_dim: 32
+  network_alpha: 16
+
+  # 학습률
+  learning_rate: 1e-4
+  unet_lr: 1e-4
+  text_encoder_lr: 5e-5
+  lr_scheduler: "cosine"
+  lr_warmup_ratio: 0.1
+
+  # 배치 설정
+  train_batch_size: 2
+  resolution: 512
+  enable_bucket: true
+  min_bucket_reso: 384
+  max_bucket_reso: 768
+  bucket_reso_steps: 64
+
+  # 최적화
+  optimizer_type: "AdamW8bit"
+  mixed_precision: "fp16"
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+
+  # Regularization
+  min_snr_gamma: 5
+  noise_offset: 0.05
+
+  # 샘플링
+  sample_every_n_epochs: 2
+  sample_sampler: "euler_a"
+  sample_prompts: "masterpiece, best quality, object"
+
+  # 저장
+  save_model_as: "safetensors"
+  save_precision: "fp16"
+
+# SDXL용 설정 (더 큰 모델)
+sdxl_character:
+  description: "SDXL 캐릭터 학습"
+  max_train_epochs: 8
+  save_every_n_epochs: 2
+
+  # 네트워크 설정 (SDXL은 더 큰 rank 필요)
+  network_dim: 64
+  network_alpha: 32
+
+  # 학습률 (SDXL은 낮은 LR)
+  learning_rate: 5e-5
+  unet_lr: 5e-5
+  text_encoder_lr: 2e-5
+  lr_scheduler: "cosine"
+  lr_warmup_ratio: 0.1
+
+  # 배치 설정
+  train_batch_size: 1  # SDXL은 VRAM 많이 사용
+  resolution: 1024  # SDXL 기본 해상도
+  enable_bucket: true
+  min_bucket_reso: 512
+  max_bucket_reso: 2048
+  bucket_reso_steps: 128
+
+  # 최적화
+  optimizer_type: "AdamW8bit"
+  mixed_precision: "bf16"  # SDXL은 bf16 권장
+  gradient_checkpointing: true
+  gradient_accumulation_steps: 2  # 효과적인 배치 크기 증가
+  max_grad_norm: 1.0
+
+  # Regularization
+  min_snr_gamma: 5
+  noise_offset: 0.05
+
+  # 샘플링
+  sample_every_n_epochs: 2
+  sample_sampler: "euler_a"
+  sample_prompts: "masterpiece, best quality, 1girl, portrait"
+
+  # 저장
+  save_model_as: "safetensors"
+  save_precision: "fp16"
+
+# 공통 기본값
+defaults:
+  # 캐싱 (학습 속도 향상)
+  cache_latents: true
+  cache_latents_to_disk: true
+
+  # 안전 설정
+  save_model_as: "safetensors"
+  save_precision: "fp16"
+
+  # 로깅
+  log_with: "tensorboard"
+  logging_dir: "logs"
+
+  # 재현성
+  seed: 42
+
+  # xformers (메모리 최적화)
+  xformers: true
+
+  # 메타데이터
+  dataset_repeats: 10  # 적은 이미지일 때 반복
+  shuffle_caption: true
+  keep_tokens: 1  # 첫 토큰 유지 (트리거 워드)
+
+  # 클립 스킵
+  clip_skip: 2  # 애니메이션 스타일에 일반적
+
+  # VAE
+  # vae: null  # 기본 VAE 사용, 필요시 경로 지정

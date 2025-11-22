@@ -5,18 +5,29 @@ LoraMaker - ComfyUI LoRA 자동 생성 도구
 
 import gradio as gr
 import os
+import sys
 from pathlib import Path
 
-# TODO: 실제 구현 시 import
-# from backend.training.trainer import LoRATrainer
-# from backend.preprocessing.image_processor import ImageProcessor
-# from backend.preprocessing.captioner import AutoCaptioner
+# 프로젝트 루트를 Python 경로에 추가
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from backend.training.trainer import LoRATrainer
+from backend.utils.gpu_utils import get_gpu_info
 
 
 class LoraMakerUI:
     def __init__(self):
         self.output_dir = Path("outputs")
         self.output_dir.mkdir(exist_ok=True)
+        self.trainer = LoRATrainer()
+
+        # 베이스 모델 경로 매핑
+        self.model_paths = {
+            "SD 1.5 (기본)": "runwayml/stable-diffusion-v1-5",
+            "SD 2.1": "stabilityai/stable-diffusion-2-1",
+            "SDXL 1.0": "stabilityai/stable-diffusion-xl-base-1.0",
+        }
 
     def train_lora(
         self,
@@ -25,45 +36,116 @@ class LoraMakerUI:
         lora_name,
         training_mode,
         trigger_word,
-        advanced_settings
+        caption_method,
+        progress=gr.Progress()
     ):
         """
         LoRA 학습 메인 함수
 
         Args:
             images: 업로드된 이미지 리스트
-            base_model: 베이스 모델 경로
+            base_model: 베이스 모델 이름
             lora_name: 생성할 LoRA 이름
-            training_mode: 학습 모드 (test/character/style/concept)
+            training_mode: 학습 모드
             trigger_word: 트리거 워드 (선택)
-            advanced_settings: 고급 설정 표시 여부
+            caption_method: 캡셔닝 방법
+            progress: Gradio Progress tracker
         """
+        # 입력 검증
         if not images:
             return "❌ 이미지를 업로드해주세요!", None
 
         if not lora_name:
             return "❌ LoRA 이름을 입력해주세요!", None
 
-        # TODO: 실제 구현
-        status = f"""
-        ✅ 설정 확인 완료!
+        # 이미지 경로 리스트로 변환
+        if isinstance(images, list):
+            image_paths = images
+        else:
+            image_paths = [images]
 
-        📊 학습 정보:
-        - 이미지 수: {len(images)}장
-        - 모드: {training_mode}
-        - LoRA 이름: {lora_name}
-        - 트리거 워드: {trigger_word if trigger_word else '(없음)'}
+        # 모드에서 프리셋 이름 추출
+        mode_map = {
+            "🚀 테스트 모드 (2분 - 개발용)": "test",
+            "👤 캐릭터 (20-30분)": "character",
+            "🎨 스타일/화풍 (30-60분)": "style",
+            "📦 오브젝트/컨셉 (20-40분)": "concept",
+        }
+        preset = mode_map.get(training_mode, "character")
 
-        🚧 [개발 중] 실제 학습 기능은 구현 예정입니다.
+        # 베이스 모델 경로
+        model_path = self.model_paths.get(base_model, self.model_paths["SD 1.5 (기본)"])
 
-        다음 단계:
-        1. 이미지 전처리
-        2. 자동 캡셔닝
-        3. LoRA 학습 시작
-        4. safetensors 저장
-        """
+        # 캡셔닝 방법 매핑
+        caption_map = {
+            "BLIP (자연어)": "blip",
+            "WD14 (태그)": "wd14",
+            "BLIP + WD14 (조합)": "both"
+        }
+        caption_method_key = caption_map.get(caption_method, "blip")
 
-        return status, None
+        # 진행 상황 메시지들
+        status_log = []
+
+        def update_progress(msg: str, prog: float):
+            """진행 상황 업데이트"""
+            status_log.append(msg)
+            progress(prog, desc=msg)
+
+        try:
+            # GPU 체크
+            gpu_info = get_gpu_info()
+            if not gpu_info["available"]:
+                return "❌ CUDA GPU를 사용할 수 없습니다. NVIDIA GPU가 필요합니다.", None
+
+            status_log.append(f"✅ GPU: {gpu_info['name']} ({gpu_info['total_vram_gb']}GB)")
+            status_log.append(f"📊 이미지: {len(image_paths)}장")
+            status_log.append(f"⚙️ 모드: {preset}")
+            status_log.append(f"🎯 모델: {model_path}")
+            status_log.append("=" * 50)
+
+            # 학습 시작
+            result = self.trainer.train_lora(
+                image_paths=image_paths,
+                lora_name=lora_name,
+                base_model_path=model_path,
+                preset=preset,
+                trigger_word=trigger_word if trigger_word.strip() else None,
+                caption_method=caption_method_key,
+                progress_callback=update_progress
+            )
+
+            # 결과 처리
+            if result["status"] == "success":
+                status_log.append("")
+                status_log.append("=" * 50)
+                status_log.append("✅ LoRA 생성 완료!")
+                status_log.append(f"📁 출력 디렉토리: {result['output_dir']}")
+                status_log.append(f"⏱️ 소요 시간: {result['elapsed_time']:.1f}초")
+                status_log.append("")
+                status_log.append("💾 생성된 파일:")
+                for f in result.get("output_files", []):
+                    status_log.append(f"  - {Path(f).name}")
+
+                # 최종 LoRA 파일 경로
+                output_files = result.get("output_files", [])
+                output_file = output_files[0] if output_files else None
+
+                return "\n".join(status_log), output_file
+
+            else:
+                # 에러
+                status_log.append("")
+                status_log.append("❌ 학습 실패!")
+                status_log.append(f"오류: {result.get('error', '알 수 없는 오류')}")
+                return "\n".join(status_log), None
+
+        except Exception as e:
+            status_log.append("")
+            status_log.append(f"❌ 예외 발생: {str(e)}")
+            import traceback
+            status_log.append(traceback.format_exc())
+            return "\n".join(status_log), None
 
     def create_ui(self):
         """Gradio UI 생성"""
@@ -127,24 +209,20 @@ class LoraMakerUI:
                         info="LoRA 활성화 키워드 (비워두면 자동)"
                     )
 
+                    caption_method = gr.Radio(
+                        choices=[
+                            "BLIP (자연어)",
+                            "WD14 (태그)",
+                            "BLIP + WD14 (조합)"
+                        ],
+                        label="캡셔닝 방법",
+                        value="BLIP (자연어)",
+                        info="이미지 설명 생성 방법"
+                    )
+
                     with gr.Accordion("🔧 고급 설정", open=False):
-                        gr.Markdown("개발 중...")
-                        learning_rate = gr.Slider(
-                            minimum=1e-5,
-                            maximum=1e-3,
-                            value=1e-4,
-                            step=1e-5,
-                            label="Learning Rate",
-                            interactive=False
-                        )
-                        network_dim = gr.Slider(
-                            minimum=8,
-                            maximum=128,
-                            value=32,
-                            step=8,
-                            label="Network Dimension",
-                            interactive=False
-                        )
+                        gr.Markdown("프리셋 파일(`configs/training_presets.yaml`)에서 수정 가능합니다.")
+                        gr.Markdown("현재 UI에서 직접 수정은 지원하지 않습니다.")
 
                     train_btn = gr.Button(
                         "🚀 LoRA 학습 시작!",
@@ -185,7 +263,7 @@ class LoraMakerUI:
                     lora_name,
                     training_mode,
                     trigger_word,
-                    gr.State(False)  # advanced_settings
+                    caption_method
                 ],
                 outputs=[status_output, output_file]
             )

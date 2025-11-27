@@ -76,8 +76,9 @@ class LoraMakerUI:
             "🎨 스타일/화풍 (SD 1.5, 30-60분)": "style",
             "📦 오브젝트/컨셉 (SD 1.5, 20-40분)": "concept",
             "👤 SDXL 캐릭터 (40-60분)": "sdxl_character",
+            "🎨 SDXL 스타일/화풍 (60-90분)": "sdxl_style",
         }
-        preset = mode_map.get(training_mode, "character")
+        preset = mode_map.get(training_mode, "sdxl_style")
 
         # 베이스 모델 경로
         if base_model == "커스텀 모델 경로 입력":
@@ -197,9 +198,10 @@ class LoraMakerUI:
                             "🎨 스타일/화풍 (SD 1.5, 30-60분)",
                             "📦 오브젝트/컨셉 (SD 1.5, 20-40분)",
                             "👤 SDXL 캐릭터 (40-60분)",
+                            "🎨 SDXL 스타일/화풍 (60-90분)",
                         ],
                         label="학습 모드",
-                        value="👤 SDXL 캐릭터 (40-60분)",
+                        value="🎨 SDXL 스타일/화풍 (60-90분)",
                         info="이미지 유형과 베이스 모델에 맞는 모드 선택"
                     )
 
@@ -235,8 +237,8 @@ class LoraMakerUI:
                             "BLIP + WD14 (조합)"
                         ],
                         label="캡셔닝 방법",
-                        value="BLIP (자연어)",
-                        info="이미지 설명 생성 방법"
+                        value="WD14 (태그)",
+                        info="이미지 설명 생성 방법 - Illustrious/NoobAI는 WD14 권장"
                     )
 
                     with gr.Accordion("🔧 고급 설정", open=False):

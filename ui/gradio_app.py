@@ -26,13 +26,17 @@ class LoraMakerUI:
         self.model_paths = {
             "SD 1.5 (기본)": "runwayml/stable-diffusion-v1-5",
             "SD 2.1": "stabilityai/stable-diffusion-2-1",
-            "SDXL 1.0": "stabilityai/stable-diffusion-xl-base-1.0",
+            "SDXL 1.0 (기본)": "stabilityai/stable-diffusion-xl-base-1.0",
         }
+
+        # SDXL 모델 판단용
+        self.sdxl_models = ["SDXL 1.0 (기본)", "커스텀 SDXL 모델"]
 
     def train_lora(
         self,
         images,
         base_model,
+        custom_model_path,
         lora_name,
         training_mode,
         trigger_word,
@@ -45,6 +49,7 @@ class LoraMakerUI:
         Args:
             images: 업로드된 이미지 리스트
             base_model: 베이스 모델 이름
+            custom_model_path: 커스텀 모델 경로
             lora_name: 생성할 LoRA 이름
             training_mode: 학습 모드
             trigger_word: 트리거 워드 (선택)
@@ -67,14 +72,20 @@ class LoraMakerUI:
         # 모드에서 프리셋 이름 추출
         mode_map = {
             "🚀 테스트 모드 (2분 - 개발용)": "test",
-            "👤 캐릭터 (20-30분)": "character",
-            "🎨 스타일/화풍 (30-60분)": "style",
-            "📦 오브젝트/컨셉 (20-40분)": "concept",
+            "👤 캐릭터 (SD 1.5, 20-30분)": "character",
+            "🎨 스타일/화풍 (SD 1.5, 30-60분)": "style",
+            "📦 오브젝트/컨셉 (SD 1.5, 20-40분)": "concept",
+            "👤 SDXL 캐릭터 (40-60분)": "sdxl_character",
         }
         preset = mode_map.get(training_mode, "character")
 
         # 베이스 모델 경로
-        model_path = self.model_paths.get(base_model, self.model_paths["SD 1.5 (기본)"])
+        if base_model == "커스텀 모델 경로 입력":
+            if not custom_model_path or not custom_model_path.strip():
+                return "❌ 커스텀 모델 경로를 입력해주세요!", None
+            model_path = custom_model_path.strip()
+        else:
+            model_path = self.model_paths.get(base_model, self.model_paths["SD 1.5 (기본)"])
 
         # 캡셔닝 방법 매핑
         caption_map = {
@@ -182,25 +193,33 @@ class LoraMakerUI:
                     training_mode = gr.Radio(
                         choices=[
                             "🚀 테스트 모드 (2분 - 개발용)",
-                            "👤 캐릭터 (20-30분)",
-                            "🎨 스타일/화풍 (30-60분)",
-                            "📦 오브젝트/컨셉 (20-40분)",
+                            "👤 캐릭터 (SD 1.5, 20-30분)",
+                            "🎨 스타일/화풍 (SD 1.5, 30-60분)",
+                            "📦 오브젝트/컨셉 (SD 1.5, 20-40분)",
+                            "👤 SDXL 캐릭터 (40-60분)",
                         ],
                         label="학습 모드",
-                        value="👤 캐릭터 (20-30분)",
-                        info="이미지 유형에 맞는 모드를 선택하세요"
+                        value="👤 SDXL 캐릭터 (40-60분)",
+                        info="이미지 유형과 베이스 모델에 맞는 모드 선택"
                     )
 
                     base_model = gr.Dropdown(
                         choices=[
                             "SD 1.5 (기본)",
                             "SD 2.1",
-                            "SDXL 1.0",
-                            "커스텀 모델..."
+                            "SDXL 1.0 (기본)",
+                            "커스텀 모델 경로 입력"
                         ],
                         label="베이스 모델",
-                        value="SD 1.5 (기본)",
+                        value="커스텀 모델 경로 입력",
                         info="학습할 베이스 모델"
+                    )
+
+                    custom_model_path = gr.Textbox(
+                        label="커스텀 모델 경로 (safetensors 또는 ckpt)",
+                        placeholder="예: /path/to/illustrious-v1.0.safetensors",
+                        info="Illustrious, NoobAI 등 로컬 SDXL 체크포인트 경로",
+                        visible=True
                     )
 
                     trigger_word = gr.Textbox(
@@ -260,6 +279,7 @@ class LoraMakerUI:
                 inputs=[
                     images,
                     base_model,
+                    custom_model_path,
                     lora_name,
                     training_mode,
                     trigger_word,
